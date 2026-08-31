@@ -35,15 +35,25 @@ eval/results/*
 *.csv
 *.parquet
 
+# Keep frozen competition experiment artifacts
+!experiments/
+!experiments/frozen_seed_13/
+!experiments/frozen_seed_13/**
+experiments/seed_sweep/
+
 # Model artifacts
 models/saved/*.pkl
 models/saved/*.joblib
 models/saved/*.model
 !models/saved/.gitkeep
 
+# Keep frozen/demo models
+!models/saved/anomaly_model.pkl
+!models/saved/tabular_model.pkl
+!models/saved/tabular_model_meta.json
+
 # Logs
 *.log
 
 # Streamlit secrets
 .streamlit/secrets.toml
-experiments/seed_sweep/
