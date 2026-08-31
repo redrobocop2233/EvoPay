@@ -31,9 +31,10 @@ data/raw/*
 eval/results/*
 !eval/results/.gitkeep
 
-# Generated datasets
-*.csv
-*.parquet
+# Generated datasets (scoped to raw data only)
+data/raw/*.csv
+data/raw/*.parquet
+!experiments/frozen_seed_13/**
 
 # Keep frozen competition experiment artifacts
 !experiments/
