@@ -29,10 +29,10 @@ from eval.metrics import compute_classification_metrics, recall_at_fpr
 def run_benchmark(num_customers=150, num_merchants=40, num_days=60,
                    population_size=30, generations=10, api_url="http://127.0.0.1:8000",
                    num_legit_samples=400, seed=11):
-    from red_team.ecosystem import PaymentEcosystem
-    from red_team.blue_team_client import BlueTeamClient, wait_for_api
-    from red_team.blue_team import HeuristicDetector
-    from red_team.red_team import RedTeamController
+    from red_and_blue_team.ecosystem import PaymentEcosystem
+    from red_and_blue_team.blue_team_client import BlueTeamClient, wait_for_api
+    from red_and_blue_team.blue_team import HeuristicDetector
+    from red_and_blue_team.red_team import RedTeamController
 
     print("Checking Blue API...")
     wait_for_api(api_url)

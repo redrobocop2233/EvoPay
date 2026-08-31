@@ -102,6 +102,11 @@ class MutationEngine:
     def __init__(self, rng, sigma=0.15):
         self.rng = rng
         self.sigma = sigma
+        self._gene_variances = None  # set externally by EvolutionEngine
+
+    def set_gene_variances(self, variances):
+        """Accept per-gene variance from the population for biased mutation."""
+        self._gene_variances = variances
 
     def mutate(self, genome, generation):
         child = copy.deepcopy(genome)
@@ -110,7 +115,21 @@ class MutationEngine:
         child.generation = generation
 
         num_genes = self.rng.choice([1, 2, 3])
-        genes_to_mutate = self.rng.sample(GENE_NAMES, k=num_genes)
+
+        # Diversity preservation: bias mutation toward low-variance genes
+        # (the dimensions that have converged too much)
+        if self._gene_variances is not None:
+            inv_var = [1.0 / (v + 0.01) for v in self._gene_variances]
+            total = sum(inv_var)
+            weights = [w / total for w in inv_var]
+            genes_to_mutate = []
+            for _ in range(num_genes):
+                gene = self.rng.choices(GENE_NAMES, weights=weights, k=1)[0]
+                if gene not in genes_to_mutate:
+                    genes_to_mutate.append(gene)
+        else:
+            genes_to_mutate = self.rng.sample(GENE_NAMES, k=num_genes)
+
         for gene in genes_to_mutate:
             value = getattr(child, gene) + self.rng.gauss(0, self.sigma)
             setattr(child, gene, min(1.0, max(0.0, value)))
@@ -517,6 +536,8 @@ class MemoryRecord:
     active_dimensions: list  # which strategy dimensions were non-"normal"
     genome_vector: list = field(default_factory=list)
     attack_family: str = "unknown"
+    detection_probability: float = 0.0
+    attack_success: float = 0.0
 
 
 class StrategyMemory:
@@ -585,7 +606,19 @@ class EvolutionEngine:
     def next_generation(self, evaluated, generation):
         # evaluated: list of (genome, fitness)
         ranked = sorted(evaluated, key=lambda pair: pair[1], reverse=True)
-        survivors = [genome for genome, _ in ranked[:self.num_survivors]]
+
+        # Section 3 — Family-balanced selection: cap how many survivors
+        # can come from the same attack family so one high-fitness family
+        # can't dominate the entire next generation.
+        survivors = self._family_balanced_select(ranked)
+
+        # Update gene variances for variance-biased mutation
+        vectors = [g.as_vector() for g, _ in evaluated if _ >= 0]
+        if vectors:
+            import numpy as _np
+            arr = _np.array(vectors)
+            gene_variances = [float(arr[:, i].var()) for i in range(len(GENE_NAMES))]
+            self.mutation_engine.set_gene_variances(gene_variances)
 
         children = []
         num_children = self.population_size - len(survivors) - self.num_immigrants
@@ -599,6 +632,37 @@ class EvolutionEngine:
 
         immigrants = [random_genome(self.rng, generation=generation) for _ in range(self.num_immigrants)]
         return survivors + children + immigrants
+
+    def _family_balanced_select(self, ranked):
+        """Select survivors with a per-family cap to preserve diversity."""
+        # Determine families for each genome
+        family_for = {}
+        for genome, fitness in ranked:
+            strategy = GenomeCodec.decode(genome)
+            active = active_dimensions_of(strategy)
+            family = attack_family_for(active, strategy)
+            family_for[genome.genome_id] = family
+
+        all_families = set(family_for.values())
+        max_per_family = max(2, self.num_survivors // max(1, len(all_families)))
+
+        survivors = []
+        family_counts = {}
+        for genome, fitness in ranked:
+            if len(survivors) >= self.num_survivors:
+                break
+            family = family_for.get(genome.genome_id, "unknown")
+            if family_counts.get(family, 0) < max_per_family:
+                survivors.append(genome)
+                family_counts[family] = family_counts.get(family, 0) + 1
+
+        # If we didn't fill enough survivors (all families hit cap), fill remainder
+        if len(survivors) < self.num_survivors:
+            for genome, fitness in ranked:
+                if genome not in survivors and len(survivors) < self.num_survivors:
+                    survivors.append(genome)
+
+        return survivors
 
 
 # ------------------------------------------------------------ controller ---
@@ -616,6 +680,7 @@ class RedTeamController:
         self.evolution = EvolutionEngine(self.rng, population_size=population_size)
         self.memory = StrategyMemory()
         self.fraud_transactions = []
+        self.fraud_transactions_by_campaign = {}  # campaign_id -> [txns]
         self.generation_stats = []
         self.population = None
         self.next_generation_number = 0
@@ -671,8 +736,11 @@ class RedTeamController:
 
                 self.novelty_engine.add(genome)
                 self.fraud_transactions.extend(transactions)
+                self.fraud_transactions_by_campaign[campaign_id] = transactions
 
                 active_dims = active_dimensions_of(strategy)
+                detection_probability = detection_result.risk_score
+                attack_success_val = 1.0 - detection_probability
                 self.memory.record(MemoryRecord(
                     genome_id=genome.genome_id,
                     parent_id=genome.parent_id,
@@ -691,6 +759,8 @@ class RedTeamController:
                     active_dimensions=active_dims,
                     genome_vector=genome.as_vector(),
                     attack_family=attack_family_for(active_dims, strategy),
+                    detection_probability=detection_probability,
+                    attack_success=attack_success_val,
                 ))
 
                 evaluated.append((genome, fitness))

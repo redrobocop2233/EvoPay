@@ -31,7 +31,7 @@ RESULTS_PATH = Path(__file__).resolve().parent.parent / "eval" / "results" / "tr
 
 import sys as _sys
 from pathlib import Path as _Path
-_sys.path.insert(0, str(_Path(__file__).resolve().parent.parent / "red_team"))
+_sys.path.insert(0, str(_Path(__file__).resolve().parent.parent / "red_and_blue_team"))
 
 # --- Sidebar ---
 st.sidebar.title("EVO-PAY")
@@ -383,22 +383,108 @@ elif page == "Adaptive Closed Loop":
             timeline = timeline.set_index("generation")
             st.subheader("Adversarial co-evolution")
             st.line_chart(timeline[["detection_rate", "attack_success_rate", "mean_fitness"]])
+
+            # Section 6: Two-curve static vs adaptive chart — THE CORE THESIS CHART
+            if "static_detection_rate" in timeline.columns and "adaptive_detection_rate" in timeline.columns:
+                st.subheader("🎯 Static vs. Adaptive Defense (Core Thesis)")
+                st.markdown("""
+- **Static defense** (orange): Detection rate of the *frozen* generation-0 Blue model against evolving Red attacks.
+  Declining line proves Red Team attacks are genuinely evolving past a fixed defense.
+- **Adaptive defense** (blue): Detection rate of the *retrained* Blue model against the same attacks.
+  Flat or recovering line proves the retraining loop is working.
+""")
+                two_curve_df = timeline[["static_detection_rate", "adaptive_detection_rate"]].rename(
+                    columns={
+                        "static_detection_rate": "Static Defense",
+                        "adaptive_detection_rate": "Adaptive Defense",
+                    }
+                )
+                st.line_chart(two_curve_df)
+
             st.dataframe(timeline, use_container_width=True)
+
+        # Section 4: Latency stats
+        latency = summary.get("latency", {})
+        if latency:
+            st.subheader("Inference Latency")
+            lc1, lc2, lc3 = st.columns(3)
+            lc1.metric("p50 (ms)", f"{latency.get('p50_ms', 0):.1f}")
+            lc2.metric("p95 (ms)", f"{latency.get('p95_ms', 0):.1f}")
+            lc3.metric("Mean (ms)", f"{latency.get('mean_ms', 0):.1f}")
 
         st.subheader("Blue performance")
         st.json(bm)
 
-        st.subheader("GenAI feedback")
+        # Section 5: Autopsy → Mutation Trace Interaction
+        st.subheader("GenAI Autopsy → Mutation Trace")
         autopsies = st.session_state.get("closed_loop_autopsies", [])
         if autopsies:
-            st.dataframe(pd.DataFrame([{
-                "strategy": a.get("strategy_id"),
-                "detected": a.get("detected"),
-                "risk": a.get("blue_risk_score"),
-                "weakest_signal": a.get("weakest_signal"),
-                "mutations": ", ".join(m.get("dimension", "") + ":" + m.get("direction", "") for m in a.get("recommended_mutations", [])),
-                "confidence": a.get("confidence"),
-            } for a in autopsies]), use_container_width=True)
+            autopsy_rows = []
+            for i, a in enumerate(autopsies):
+                mutations = a.get("recommended_mutations", [])
+                autopsy_rows.append({
+                    "idx": i,
+                    "strategy": a.get("strategy_id", ""),
+                    "detected": a.get("detected", ""),
+                    "risk": a.get("blue_risk_score", 0),
+                    "weakest_signal": a.get("weakest_signal", ""),
+                    "mutations": ", ".join(
+                        m.get("dimension", "") + ":" + m.get("direction", "")
+                        for m in mutations
+                    ),
+                    "confidence": a.get("confidence", ""),
+                    "explanation": a.get("explanation", ""),
+                })
+            st.dataframe(pd.DataFrame(autopsy_rows).drop(columns=["idx"]), use_container_width=True)
+
+            # Detailed trace: click an autopsy to see the full attack → defense → mutation path
+            selected_idx = st.selectbox(
+                "Select an autopsy to trace", range(len(autopsies)),
+                format_func=lambda i: f"Autopsy #{i+1}: {autopsies[i].get('strategy_id', 'unknown')}"
+            )
+            if selected_idx is not None:
+                a = autopsies[selected_idx]
+                tc1, tc2, tc3 = st.columns(3)
+
+                with tc1:
+                    st.markdown("**🔴 Attack**")
+                    st.write(f"Strategy: `{a.get('strategy_id', '')}`")
+                    st.write(f"Detected: {'✅ Yes' if a.get('detected') else '❌ No'}")
+                    st.write(f"Risk score: `{a.get('blue_risk_score', 0):.3f}`")
+
+                with tc2:
+                    st.markdown("**🔵 Defense Response**")
+                    reason_codes = a.get("reason_codes", [])
+                    if reason_codes:
+                        for code in reason_codes:
+                            st.write(f"- `{code}`")
+                    else:
+                        st.write("No specific reason codes")
+                    st.write(f"Weakest signal: `{a.get('weakest_signal', 'unknown')}`")
+
+                with tc3:
+                    st.markdown("**🧬 GenAI Autopsy**")
+                    st.write(a.get("explanation", "No explanation available"))
+
+                # Genome before → after diff
+                mutations = a.get("recommended_mutations", [])
+                if mutations:
+                    st.markdown("**Genome Mutation Diff (parent → child)**")
+                    diff_data = []
+                    for m in mutations:
+                        dim = m.get("dimension", "")
+                        direction = m.get("direction", "")
+                        rationale = m.get("rationale", "")
+                        arrow = "↑ +0.10" if direction in ("increase", "add") else "↓ -0.10"
+                        diff_data.append({
+                            "Dimension": dim,
+                            "Direction": direction,
+                            "Change": arrow,
+                            "Rationale": rationale,
+                        })
+                    st.dataframe(pd.DataFrame(diff_data), use_container_width=True)
+        else:
+            st.info("No autopsies available — run with Gemini enabled to see GenAI feedback.")
 
         with st.expander("Metric definitions"):
             st.markdown("""
@@ -406,6 +492,8 @@ elif page == "Adaptive Closed Loop":
 - **Attack success**: fraction of Red campaigns that evade Blue.
 - **FPR**: fraction of untouched legitimate transactions flagged by Blue.
 - **Genome diversity**: diversity of Red behavioral combinations.
+- **Static defense**: detection rate of the frozen generation-0 Blue model.
+- **Adaptive defense**: detection rate of the retrained Blue model.
 - **Fidelity proxy**: simulator-quality diagnostic; it is not a claim about real-world fraud prevalence.
 - **Holdout attacks**: fresh genomes evaluated without GenAI feedback.
 """)
@@ -433,10 +521,10 @@ elif page == "Red Team Evolution":
 
     if st.button("Run evolution", type="primary", disabled=(api_status is None and not use_fallback)):
         with st.spinner(f"Running {generations} generations against {population_size} strategies each..."):
-            from red_team.ecosystem import PaymentEcosystem
-            from red_team.blue_team_client import BlueTeamClient
-            from red_team.blue_team import HeuristicDetector
-            from red_team.red_team import RedTeamController, FailureAnalyzer
+            from red_and_blue_team.ecosystem import PaymentEcosystem
+            from red_and_blue_team.blue_team_client import BlueTeamClient
+            from red_and_blue_team.blue_team import HeuristicDetector
+            from red_and_blue_team.red_team import RedTeamController, FailureAnalyzer
 
             eco = PaymentEcosystem(num_customers=num_customers, num_merchants=max(15, num_customers // 3), num_days=60)
             eco.generate_transactions()

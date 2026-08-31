@@ -108,11 +108,34 @@ def parse_results(text: str):
     discoveries = re.search(r"GenAI discoveries:\s*(\d+)", text)
     autopsies = re.search(r"GenAI autopsies:\s*(\d+)", text)
 
+    # Parse static vs adaptive two-curve data
+    static_vs_adaptive = []
+    sva_pattern = re.compile(
+        r"^\s*(\d+)\s*\|\s*([\d.]+)%\s*\|\s*([\d.]+)%",
+        re.M,
+    )
+    in_sva_section = False
+    for line in text.splitlines():
+        if "STATIC vs. ADAPTIVE" in line:
+            in_sva_section = True
+            continue
+        if in_sva_section:
+            sm = sva_pattern.match(line)
+            if sm:
+                static_vs_adaptive.append({
+                    "generation": int(sm.group(1)),
+                    "static_detection": float(sm.group(2)),
+                    "adaptive_detection": float(sm.group(3)),
+                })
+            elif line.strip() and not line.strip().startswith("generation"):
+                in_sva_section = False
+
     return (
         pd.DataFrame(generations),
         metrics,
         int(discoveries.group(1)) if discoveries else None,
         int(autopsies.group(1)) if autopsies else None,
+        pd.DataFrame(static_vs_adaptive),
     )
 
 def health_check(url: str):
@@ -198,7 +221,7 @@ if run:
 output = st.session_state.get("last_output", "")
 
 if output:
-    generations_df, metrics, discoveries, autopsies = parse_results(output)
+    generations_df, metrics, discoveries, autopsies, sva_df = parse_results(output)
 
     st.subheader("Live experiment results")
 
@@ -215,6 +238,21 @@ if output:
             ["detection", "attack_success"]
         ]
         st.line_chart(chart)
+
+        # Section 6: Two-curve static vs adaptive chart
+        if not sva_df.empty:
+            st.markdown("### 🎯 Static vs. Adaptive Defense")
+            st.markdown("""
+- **Static Defense**: Detection by the *frozen* generation-0 Blue model. Decline proves Red attacks genuinely evolve past a fixed defense.
+- **Adaptive Defense**: Detection by the *retrained* Blue model. Flat/recovering proves the retraining loop works.
+""")
+            sva_chart = sva_df.set_index("generation")[
+                ["static_detection", "adaptive_detection"]
+            ].rename(columns={
+                "static_detection": "Static Defense (%)",
+                "adaptive_detection": "Adaptive Defense (%)",
+            })
+            st.line_chart(sva_chart)
 
         st.markdown("### Evolution dynamics")
         chart2 = generations_df.set_index("generation")[
