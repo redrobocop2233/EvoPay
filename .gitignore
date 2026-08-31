@@ -46,3 +46,4 @@ models/saved/*.model
 
 # Streamlit secrets
 .streamlit/secrets.toml
+experiments/seed_sweep/

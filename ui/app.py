@@ -108,12 +108,46 @@ def parse_results(text: str):
     discoveries = re.search(r"GenAI discoveries:\s*(\d+)", text)
     autopsies = re.search(r"GenAI autopsies:\s*(\d+)", text)
 
+    # Parse static vs adaptive two-curve data
+    static_vs_adaptive = []
+    sva_pattern = re.compile(
+        r"^\s*(\d+)\s*\|\s*([\d.]+)%\s*\|\s*([\d.]+)%",
+        re.M,
+    )
+    in_sva_section = False
+    for line in text.splitlines():
+        if "STATIC vs. ADAPTIVE" in line:
+            in_sva_section = True
+            continue
+        if in_sva_section:
+            sm = sva_pattern.match(line)
+            if sm:
+                static_vs_adaptive.append({
+                    "generation": int(sm.group(1)),
+                    "static_detection": float(sm.group(2)),
+                    "adaptive_detection": float(sm.group(3)),
+                })
+            elif line.strip() and not line.strip().startswith("generation"):
+                in_sva_section = False
+
     return (
         pd.DataFrame(generations),
         metrics,
         int(discoveries.group(1)) if discoveries else None,
         int(autopsies.group(1)) if autopsies else None,
+        pd.DataFrame(static_vs_adaptive),
     )
+
+
+def load_run_summary():
+    path = Path("integration/results/closed_loop_summary.json")
+    if not path.exists():
+        return {}
+    try:
+        import json
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
 
 def health_check(url: str):
     try:
@@ -196,9 +230,10 @@ if run:
 
 # ---------- Results ----------
 output = st.session_state.get("last_output", "")
+run_summary = load_run_summary()
 
 if output:
-    generations_df, metrics, discoveries, autopsies = parse_results(output)
+    generations_df, metrics, discoveries, autopsies, sva_df = parse_results(output)
 
     st.subheader("Live experiment results")
 
@@ -210,11 +245,32 @@ if output:
         k3.metric("Avg. risk", f"{latest.avg_risk:.4f}")
         k4.metric("Attack diversity", f"{latest.diversity:.4f}")
 
+        tta = run_summary.get("time_to_adapt", {})
+        h1, h2, h3 = st.columns(3)
+        h1.metric("Held-out detection", f"{run_summary.get('holdout_attack_eval', {}).get('detection_rate', 0):.1%}")
+        h2.metric("Avg. time-to-adapt", f"{tta.get('avg_time_to_adapt_generations', '—')} gen")
+        h3.metric("Held-out campaigns", str(run_summary.get('holdout_attack_eval', {}).get('n', 0)))
+
         st.markdown("### Red Team adaptation")
         chart = generations_df.set_index("generation")[
             ["detection", "attack_success"]
         ]
         st.line_chart(chart)
+
+        # Section 6: Two-curve static vs adaptive chart
+        if not sva_df.empty:
+            st.markdown("### 🎯 Static vs. Adaptive Defense")
+            st.markdown("""
+- **Static Defense**: Detection by the *frozen* generation-0 Blue model. Decline proves Red attacks genuinely evolve past a fixed defense.
+- **Adaptive Defense**: Detection by the *retrained* Blue model. Flat/recovering proves the retraining loop works.
+""")
+            sva_chart = sva_df.set_index("generation")[
+                ["static_detection", "adaptive_detection"]
+            ].rename(columns={
+                "static_detection": "Static Defense (%)",
+                "adaptive_detection": "Adaptive Defense (%)",
+            })
+            st.line_chart(sva_chart)
 
         st.markdown("### Evolution dynamics")
         chart2 = generations_df.set_index("generation")[
@@ -230,6 +286,14 @@ if output:
         display_df["avg_risk"] = display_df["avg_risk"].map(lambda x: f"{x:.4f}")
         display_df["diversity"] = display_df["diversity"].map(lambda x: f"{x:.4f}")
         st.dataframe(display_df, use_container_width=True, hide_index=True)
+
+        # Lineage view: lightweight and robust; no graph rendering dependency in the UI.
+        mem_path = Path("integration/results/strategy_memory.csv")
+        if mem_path.exists():
+            st.markdown("### 🧬 Attack lineage")
+            mem = pd.read_csv(mem_path)
+            cols = [c for c in ["campaign_id","parent_campaign_id","generation","attack_family","fitness","detection_probability","mutation_summary"] if c in mem.columns]
+            st.dataframe(mem[cols].tail(60), use_container_width=True, hide_index=True)
 
     if metrics:
         st.markdown("### Blue Team performance")

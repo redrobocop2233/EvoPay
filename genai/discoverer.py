@@ -5,7 +5,7 @@ import json
 import random
 
 from .schemas import AttackHypothesis
-from red_team.red_team import AttackGenome, ACTIVE_THRESHOLD, GenomeCodec
+from red_and_blue_team.red_team import AttackGenome, ACTIVE_THRESHOLD, GenomeCodec
 
 
 DISCOVERY_SYSTEM_PROMPT = """You are EVO-PAY's defensive GenAI Threat Discovery Agent.

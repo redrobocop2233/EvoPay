@@ -1,0 +1,8 @@
+{
+  "families_evaluated": 8,
+  "families_adapted_within_run": 7,
+  "avg_time_to_adapt_generations": 0.29,
+  "median_time_to_adapt_generations": 0.0,
+  "fastest_adapt": 0,
+  "families_never_adapted": 1
+}

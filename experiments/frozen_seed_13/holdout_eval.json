@@ -1,0 +1,35 @@
+{
+  "n": 20,
+  "detection_rate": 0.65,
+  "mean_risk": 0.6017,
+  "held_out_families": [],
+  "held_out_primitive_combos": [
+    [
+      "geo_anomaly",
+      "velocity_burst"
+    ],
+    [
+      "device_switch",
+      "category_drift",
+      "multi_account_coordination"
+    ]
+  ],
+  "families": {
+    "emergent_geographic_velocity": 10,
+    "emergent_coordination_device_merchant": 10
+  },
+  "metrics_with_legitimate_baseline": {
+    "precision": 1.0,
+    "recall": 0.65,
+    "f1": 0.7878787878787878,
+    "fpr": 0.0,
+    "fnr": 0.35,
+    "true_positives": 13,
+    "false_positives": 0,
+    "true_negatives": 25,
+    "false_negatives": 7,
+    "roc_auc": 0.982,
+    "pr_auc": 0.9798287385129489,
+    "brier_score": 0.11228402222222225
+  }
+}

@@ -138,3 +138,17 @@ The dashboard calls the existing `integration.closed_loop` entry point rather th
 ## Security
 
 EVO-PAY is a synthetic research environment. It does not connect to real payment rails. Never place production credentials, cardholder data, or other sensitive payment information in the repository.
+
+## Evaluation and Reproducibility
+
+The repository includes held-out attack evaluation, evolutionary lineage tracking, a
+Time-to-Adapt KPI, and deterministic seed sweeps. Quick verification:
+
+```powershell
+python -m integration.closed_loop --generations 3 --population 12 --discover 0 --local-blue --no-genai
+pytest -q
+python -m experiments.seed_sweep --seeds 1 7 13 --profile quick
+```
+
+Held-out attacks are reserved from the evolutionary loop and reported separately from
+in-distribution performance.

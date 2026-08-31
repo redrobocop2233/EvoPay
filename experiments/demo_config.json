@@ -1,0 +1,13 @@
+{
+  "profile": "quick",
+  "seed": 13,
+  "generations": 3,
+  "population": 12,
+  "discover": 4,
+  "customers": 120,
+  "merchants": 40,
+  "days": 60,
+  "use_genai": false,
+  "use_legacy_proxy": false,
+  "detector_type": "TrainableDetector"
+}
