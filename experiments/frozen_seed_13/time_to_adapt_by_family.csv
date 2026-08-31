@@ -1,0 +1,9 @@
+family,first_generation,first_gen_detection_rate,generation_reached_target,time_to_adapt
+emergent_amount_coordination_velocity,0,1.0,0.0,0.0
+emergent_amount_device_merchant,0,1.0,0.0,0.0
+emergent_amount_geographic_merchant,0,1.0,0.0,0.0
+emergent_coordination_geographic_merchant,0,0.667,1.0,1.0
+emergent_device_geographic_temporal,0,1.0,0.0,0.0
+emergent_merchant,1,1.0,1.0,0.0
+emergent_temporal,0,0.25,1.0,1.0
+legitimate,0,0.5,,

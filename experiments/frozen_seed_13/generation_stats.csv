@@ -1,0 +1,4 @@
+generation,avg_fitness,avg_risk,detection_rate,attack_success_rate,evaluated
+0,0.3615,0.499,0.444,0.556,9
+1,0.246,0.621,0.909,0.091,11
+2,0.152,0.783,0.909,0.091,11
