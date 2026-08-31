@@ -1,0 +1,38 @@
+[
+  {
+    "event": "blue_evaluation",
+    "generation": 0,
+    "campaigns": 12,
+    "detected": 6,
+    "latency_ms": 4.9
+  },
+  {
+    "event": "blue_retrain_trainable",
+    "generation": 0,
+    "training_samples": 65
+  },
+  {
+    "event": "blue_evaluation",
+    "generation": 1,
+    "campaigns": 9,
+    "detected": 8,
+    "latency_ms": 1838.2
+  },
+  {
+    "event": "blue_retrain_trainable",
+    "generation": 1,
+    "training_samples": 74
+  },
+  {
+    "event": "blue_evaluation",
+    "generation": 2,
+    "campaigns": 9,
+    "detected": 8,
+    "latency_ms": 1334.1
+  },
+  {
+    "event": "blue_retrain_trainable",
+    "generation": 2,
+    "training_samples": 83
+  }
+]

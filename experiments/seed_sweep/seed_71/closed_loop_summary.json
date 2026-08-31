@@ -162,9 +162,9 @@
     }
   ],
   "latency": {
-    "p50_ms": 135.17,
-    "p95_ms": 161.44,
-    "mean_ms": 100.04,
+    "p50_ms": 109.54,
+    "p95_ms": 148.23,
+    "mean_ms": 87.5,
     "samples": 3
   },
   "discoveries": 0,
