@@ -10,12 +10,12 @@ cleanup() {
 }
 trap cleanup INT TERM EXIT
 
-# Give FastAPI a moment to initialize its model/data state.
+# Give FastAPI enough time to initialize its model/data state on low-CPU instances.
 python - <<'PY'
 import time
 import urllib.request
 
-for _ in range(30):
+for _ in range(120):
     try:
         with urllib.request.urlopen("http://127.0.0.1:8000/health", timeout=1) as r:
             if r.status == 200:

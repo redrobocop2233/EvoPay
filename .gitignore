@@ -39,8 +39,11 @@ eval/results/*
 !experiments/
 !experiments/frozen_seed_13/
 !experiments/frozen_seed_13/**
+<<<<<<< HEAD
 
 # Generated bulk experiment output
+=======
+>>>>>>> origin/main
 experiments/seed_sweep/
 
 # Model artifacts
@@ -58,4 +61,8 @@ models/saved/*.model
 *.log
 
 # Streamlit secrets
+<<<<<<< HEAD
 .streamlit/secrets.toml
+=======
+.streamlit/secrets.toml
+>>>>>>> origin/main
