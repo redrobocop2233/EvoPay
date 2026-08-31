@@ -593,23 +593,42 @@ class FailureAnalyzer:
 # ---------------------------------------------------------- evolution ---
 
 class EvolutionEngine:
-    def __init__(self, rng, population_size=30, survival_fraction=0.3, immigrant_fraction=0.15):
+    def __init__(self, rng, population_size=30, survival_fraction=0.3, immigrant_fraction=0.15,
+                 holdout=None):
         self.rng = rng
         self.population_size = population_size
         self.num_survivors = max(2, int(population_size * survival_fraction))
         self.num_immigrants = max(1, int(population_size * immigrant_fraction))
         self.mutation_engine = MutationEngine(rng)
+        self.holdout = holdout
+        self._consecutive_saturated = 0  # Track consecutive 100% detection gens
+
+    def _passes_holdout(self, genome):
+        """Return True if genome does NOT violate holdout constraints."""
+        if self.holdout is None:
+            return True
+        from eval.holdout import violates_holdout_genome
+        return not violates_holdout_genome(genome, self.holdout)
 
     def initial_population(self):
-        return [random_genome(self.rng, generation=0) for _ in range(self.population_size)]
+        population = []
+        max_attempts = self.population_size * 5
+        attempts = 0
+        while len(population) < self.population_size and attempts < max_attempts:
+            genome = random_genome(self.rng, generation=0)
+            if self._passes_holdout(genome):
+                population.append(genome)
+            attempts += 1
+        # Fill remainder if holdout is very restrictive
+        while len(population) < self.population_size:
+            population.append(random_genome(self.rng, generation=0))
+        return population
 
-    def next_generation(self, evaluated, generation):
+    def next_generation(self, evaluated, generation, detection_rate=None):
         # evaluated: list of (genome, fitness)
         ranked = sorted(evaluated, key=lambda pair: pair[1], reverse=True)
 
-        # Section 3 — Family-balanced selection: cap how many survivors
-        # can come from the same attack family so one high-fitness family
-        # can't dominate the entire next generation.
+        # Section 3 — Family-balanced selection
         survivors = self._family_balanced_select(ranked)
 
         # Update gene variances for variance-biased mutation
@@ -620,17 +639,46 @@ class EvolutionEngine:
             gene_variances = [float(arr[:, i].var()) for i in range(len(GENE_NAMES))]
             self.mutation_engine.set_gene_variances(gene_variances)
 
+        # Section B: Adaptive mutation rate — boost when Blue saturates
+        if detection_rate is not None and detection_rate >= 0.999:
+            self._consecutive_saturated += 1
+        else:
+            self._consecutive_saturated = 0
+
+        if self._consecutive_saturated >= 2:
+            # Increase mutation strength to push Red out of Blue's learned region
+            self.mutation_engine.sigma = min(0.25, self.mutation_engine.sigma * 1.5)
+        else:
+            self.mutation_engine.sigma = 0.15  # default
+
         children = []
         num_children = self.population_size - len(survivors) - self.num_immigrants
         for _ in range(num_children):
-            if len(survivors) >= 2 and self.rng.random() < 0.3:
-                parent_a, parent_b = self.rng.sample(survivors, 2)
-                children.append(self.mutation_engine.crossover(parent_a, parent_b, generation))
-            else:
-                parent = self.rng.choice(survivors)
-                children.append(self.mutation_engine.mutate(parent, generation))
+            child = None
+            for _attempt in range(10):  # retry if holdout violated
+                if len(survivors) >= 2 and self.rng.random() < 0.3:
+                    parent_a, parent_b = self.rng.sample(survivors, 2)
+                    candidate = self.mutation_engine.crossover(parent_a, parent_b, generation)
+                else:
+                    parent = self.rng.choice(survivors)
+                    candidate = self.mutation_engine.mutate(parent, generation)
+                if self._passes_holdout(candidate):
+                    child = candidate
+                    break
+            if child is None:
+                child = candidate  # fallback: use last attempt
+            children.append(child)
 
-        immigrants = [random_genome(self.rng, generation=generation) for _ in range(self.num_immigrants)]
+        immigrants = []
+        for _ in range(self.num_immigrants):
+            for _attempt in range(10):
+                g = random_genome(self.rng, generation=generation)
+                if self._passes_holdout(g):
+                    immigrants.append(g)
+                    break
+            else:
+                immigrants.append(g)
+
         return survivors + children + immigrants
 
     def _family_balanced_select(self, ranked):
@@ -669,7 +717,7 @@ class EvolutionEngine:
 
 class RedTeamController:
     def __init__(self, ecosystem: PaymentEcosystem, detector: DetectorInterface = None, seed=7,
-                 population_size=30):
+                 population_size=30, holdout=None):
         self.eco = ecosystem
         self.rng = random.Random(seed)
         self.detector = detector or HeuristicDetector()
@@ -677,7 +725,7 @@ class RedTeamController:
         self.validator = RealismValidator()
         self.novelty_engine = NoveltyEngine()
         self.fitness_engine = FitnessEngine()
-        self.evolution = EvolutionEngine(self.rng, population_size=population_size)
+        self.evolution = EvolutionEngine(self.rng, population_size=population_size, holdout=holdout)
         self.memory = StrategyMemory()
         self.fraud_transactions = []
         self.fraud_transactions_by_campaign = {}  # campaign_id -> [txns]
@@ -780,7 +828,10 @@ class RedTeamController:
                     "evaluated": gen_evaluated,
                 })
 
-            population = self.evolution.next_generation(evaluated, generation + 1)
+            population = self.evolution.next_generation(
+                evaluated, generation + 1,
+                detection_rate=(gen_detected / gen_evaluated) if gen_evaluated else None,
+            )
             self.next_generation_number = generation + 1
 
         self.population = population

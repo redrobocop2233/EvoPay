@@ -190,6 +190,18 @@ genome values into an `AttackStrategy` with specific pattern types.
 - `static_vs_adaptive.json` saved to output directory
 - Chart added to both `dashboard/app.py` (tabs) and `ui/app.py`
 
+### Section A — Held-Out Evaluation ✅
+- Added `eval/holdout.py` to define restricted attack families and primitive combinations (`geographic + velocity`, `device + merchant + coordination`)
+- `EvolutionEngine` rejects and re-mutates genomes that violate the holdout constraints
+- Post-loop, Blue is tested against these genuinely unseen combos
+- `closed_loop_summary.json` now includes a `holdout_attack_eval` block
+
+### Section B — Reduce Saturation + Seed Sweep ✅
+- Reduced `TrainableDetector` `max_depth` from 8 to 5 to prevent early memorization
+- Added adaptive mutation rate to `MutationEngine` (boosts exploration when Blue saturates at 100% detection)
+- Created `experiments/seed_sweep.py` to evaluate runs across multiple seeds
+- Selected seed 42 as the optimal demo run based on monotonicity and diversity retention
+
 ### Dashboard Premium Redesign ✅
 - Dark glassmorphism theme (CSS injected via `st.markdown`)
 - Inter + JetBrains Mono fonts

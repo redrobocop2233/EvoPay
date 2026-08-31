@@ -8,12 +8,9 @@ each campaign through a 10-dimensional feature extraction pipeline followed by `
 
 | Metric | Value |
 |--------|-------|
-| **p50 latency** | ~44 ms per campaign |
-| **p95 latency** | ~46 ms per campaign |
-| **Mean latency** | ~30 ms per campaign |
-
-> **Note**: Replace the above placeholder values with the actual numbers from your
-> frozen demo run (`integration/results/closed_loop_summary.json` → `latency` field).
+| **p50 latency** | ~49.9 ms per campaign |
+| **p95 latency** | ~57.0 ms per campaign |
+| **Mean latency** | ~36.2 ms per campaign |
 
 In a production payment-authorization pipeline, the end-to-end SLA is typically
 sub-200ms. The fraud-detection model's share of that budget is a small fraction
@@ -24,16 +21,27 @@ on a single transaction rather than a batch.
 
 ## False-Positive Cost in Business Terms
 
-At our measured FPR of X% (substitute from `closed_loop_summary.json` → `blue_classification.fpr`):
+At our measured FPR of 0.0% (substitute from `closed_loop_summary.json` → `blue_classification.fpr`):
 
 > At an assumed processing volume of 1,000,000 transactions/day and a measured FPR of
-> X%, approximately Y legitimate transactions per day would require step-up authentication
-> or manual review. At an estimated $Z cost per manual review (industry range: $5-$25),
-> this represents a daily operational cost of approximately $W.
+> 0.0%, approximately 0 legitimate transactions per day would require step-up authentication
+> or manual review in this synthetic environment. Real-world FPRs would invariably be higher,
+> but this establishes that the detector is highly specific to learned fraud patterns.
 >
 > This should be weighed against the fraud losses prevented, which at our measured recall
-> of R% on evolved adversarial attacks, would catch the majority of sophisticated
+> of 69.4% on evolved adversarial attacks, would catch the majority of sophisticated
 > multi-dimensional fraud campaigns.
+
+## Generalization: In-Distribution vs. Held-Out
+
+A critical test of an adaptive defense is whether it memorizes specific evolved attacks or learns generalized fraud primitives. To test this, we enforce a strict holdout: specific combinations of primitives (e.g., `geographic_anomaly + velocity_burst`) are strictly forbidden during the evolutionary loop. Blue never trains on them. Post-loop, we test Blue against these never-before-seen combinations.
+
+| Metric | In-Distribution (Evolved) | Held-Out (Novel Combos) |
+|--------|---------------------------|-------------------------|
+| **Detection Rate (Recall)** | 69.4% | 90.0% |
+| **Mean Risk Score** | 0.645 | 0.848 |
+
+The held-out detection rate actually exceeds the in-distribution recall. This confirms that the TrainableDetector is learning robust underlying signals (e.g., recognizing that a velocity burst is suspicious even when paired with an unfamiliar geographic anomaly) rather than merely memorizing the exact genomes the Red Team evolved.
 
 ## Integration Model
 

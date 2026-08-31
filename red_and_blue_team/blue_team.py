@@ -196,7 +196,7 @@ class TrainableDetector(DetectorInterface):
         y = np.array(self._training_y)
         self._model = RandomForestClassifier(
             n_estimators=100,
-            max_depth=8,
+            max_depth=5,
             min_samples_leaf=3,
             class_weight="balanced",
             random_state=42,

@@ -1,0 +1,17 @@
+[
+  {
+    "generation": 0,
+    "static_detection_rate": 0.1667,
+    "adaptive_detection_rate": 0.1667
+  },
+  {
+    "generation": 1,
+    "static_detection_rate": 0.1111,
+    "adaptive_detection_rate": 1.0
+  },
+  {
+    "generation": 2,
+    "static_detection_rate": 0.1111,
+    "adaptive_detection_rate": 0.8889
+  }
+]
