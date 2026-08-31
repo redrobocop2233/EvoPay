@@ -1,36 +1,39 @@
 {
   "overall_red_blue": {
     "campaigns_evaluated": 36,
-    "detection_rate": 0.7222,
-    "attack_success_rate": 0.2778,
-    "mean_risk": 0.6898,
-    "mean_fitness": 0.2539,
-    "unique_attack_families": 13,
+    "detection_rate": 0.75,
+    "attack_success_rate": 0.25,
+    "mean_risk": 0.6502,
+    "mean_fitness": 0.2531,
+    "unique_attack_families": 14,
     "unique_behavior_signatures": 13,
     "generations": 3
   },
   "blue_classification": {
     "precision": 1.0,
-    "recall": 0.7222222222222222,
-    "f1": 0.8387096774193549,
+    "recall": 0.75,
+    "f1": 0.8571428571428571,
     "fpr": 0.0,
-    "fnr": 0.2777777777777778,
-    "true_positives": 26,
+    "fnr": 0.25,
+    "true_positives": 27,
     "false_positives": 0,
     "true_negatives": 25,
-    "false_negatives": 10,
-    "roc_auc": 0.9577777777777777,
-    "pr_auc": 0.9752603997044457,
-    "brier_score": 0.10796670491803279,
-    "recall_at_1pct_fpr": 0.8333333333333334,
-    "recall_at_5pct_fpr": 0.8333333333333334,
+    "false_negatives": 9,
+    "roc_auc": 0.9144444444444444,
+    "pr_auc": 0.9636126016442037,
+    "brier_score": 0.1281258360655738,
+    "recall_at_1pct_fpr": 0.8611111111111112,
+    "recall_at_5pct_fpr": 0.9166666666666666,
     "n_fraud_campaigns": 36,
     "n_legitimate_samples": 25,
-    "mean_legit_risk": 0.1627
+    "mean_legit_risk": 0.1746
   },
-  "holdout_attack_eval": {
-    "description": "Performance on attack families/combos never seen during evolution",
-    "held_out_families": [],
+  "holdout_metrics": {
+    "description": "Performance on attack families/primitive-combos never seen during evolution",
+    "n_campaigns": 20,
+    "detection_rate": 1.0,
+    "attack_success_rate": 0.0,
+    "mean_risk": 0.8766,
     "held_out_primitive_combos": [
       [
         "geographic",
@@ -42,81 +45,126 @@
         "coordination"
       ]
     ],
+    "held_out_families": [],
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "fpr": 0.0,
+    "fnr": 0.0,
+    "true_positives": 20,
+    "false_positives": 0,
+    "true_negatives": 25,
+    "false_negatives": 0,
+    "roc_auc": 1.0,
+    "pr_auc": 0.9999999999999999,
+    "brier_score": 0.029148644444444448,
+    "recall_at_1pct_fpr": 1.0,
+    "recall_at_5pct_fpr": 1.0
+  },
+  "holdout_attack_eval": {
+    "description": "Performance on attack families/primitive-combos never seen during evolution",
     "n_campaigns": 20,
-    "detection_rate": 0.95,
-    "mean_risk": 0.8482
+    "detection_rate": 1.0,
+    "attack_success_rate": 0.0,
+    "mean_risk": 0.8766,
+    "held_out_primitive_combos": [
+      [
+        "geographic",
+        "velocity"
+      ],
+      [
+        "device",
+        "merchant",
+        "coordination"
+      ]
+    ],
+    "held_out_families": [],
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "fpr": 0.0,
+    "fnr": 0.0,
+    "true_positives": 20,
+    "false_positives": 0,
+    "true_negatives": 25,
+    "false_negatives": 0,
+    "roc_auc": 1.0,
+    "pr_auc": 0.9999999999999999,
+    "brier_score": 0.029148644444444448,
+    "recall_at_1pct_fpr": 1.0,
+    "recall_at_5pct_fpr": 1.0
   },
   "generation_timeline": [
     {
       "generation": 0,
-      "campaigns": 17,
-      "detection_rate": 0.4706,
-      "attack_success_rate": 0.5294,
-      "mean_risk": 0.5781,
-      "mean_fitness": 0.3299,
-      "mean_novelty": 0.3149,
-      "unique_attack_families": 10,
+      "campaigns": 15,
+      "detection_rate": 0.6667,
+      "attack_success_rate": 0.3333,
+      "mean_risk": 0.5305,
+      "mean_fitness": 0.3276,
+      "mean_novelty": 0.3134,
+      "unique_attack_families": 11,
       "unique_behavior_signatures": 10,
-      "genome_diversity": 0.9333,
-      "fidelity_proxy": 0.7432,
+      "genome_diversity": 0.8922,
+      "fidelity_proxy": 0.6417,
       "hard_realism_pass_rate": 1.0,
-      "static_detection_rate": 0.3333,
-      "adaptive_detection_rate": 0.3333
+      "static_detection_rate": 0.5833,
+      "adaptive_detection_rate": 0.5833
     },
     {
       "generation": 1,
-      "campaigns": 10,
-      "detection_rate": 0.9,
-      "attack_success_rate": 0.1,
-      "mean_risk": 0.7511,
-      "mean_fitness": 0.1913,
-      "mean_novelty": 0.1221,
-      "unique_attack_families": 3,
-      "unique_behavior_signatures": 3,
-      "genome_diversity": 0.446,
-      "fidelity_proxy": 0.9052,
+      "campaigns": 12,
+      "detection_rate": 0.75,
+      "attack_success_rate": 0.25,
+      "mean_risk": 0.6598,
+      "mean_fitness": 0.2414,
+      "mean_novelty": 0.1447,
+      "unique_attack_families": 4,
+      "unique_behavior_signatures": 4,
+      "genome_diversity": 0.5974,
+      "fidelity_proxy": 0.7317,
       "hard_realism_pass_rate": 1.0,
-      "static_detection_rate": 0.0,
-      "adaptive_detection_rate": 0.8889
+      "static_detection_rate": 0.1111,
+      "adaptive_detection_rate": 0.6667
     },
     {
       "generation": 2,
       "campaigns": 9,
-      "detection_rate": 1.0,
-      "attack_success_rate": 0.0,
-      "mean_risk": 0.8327,
-      "mean_fitness": 0.1797,
-      "mean_novelty": 0.0989,
-      "unique_attack_families": 5,
-      "unique_behavior_signatures": 5,
-      "genome_diversity": 0.6334,
-      "fidelity_proxy": 0.8676,
+      "detection_rate": 0.8889,
+      "attack_success_rate": 0.1111,
+      "mean_risk": 0.8368,
+      "mean_fitness": 0.1445,
+      "mean_novelty": 0.1073,
+      "unique_attack_families": 4,
+      "unique_behavior_signatures": 4,
+      "genome_diversity": 0.6837,
+      "fidelity_proxy": 0.7103,
       "hard_realism_pass_rate": 1.0,
-      "static_detection_rate": 0.3333,
-      "adaptive_detection_rate": 1.0
+      "static_detection_rate": 0.1111,
+      "adaptive_detection_rate": 0.8889
     }
   ],
   "static_vs_adaptive": [
     {
       "generation": 0,
-      "static_detection_rate": 0.3333,
-      "adaptive_detection_rate": 0.3333
+      "static_detection_rate": 0.5833,
+      "adaptive_detection_rate": 0.5833
     },
     {
       "generation": 1,
-      "static_detection_rate": 0.0,
-      "adaptive_detection_rate": 0.8889
+      "static_detection_rate": 0.1111,
+      "adaptive_detection_rate": 0.6667
     },
     {
       "generation": 2,
-      "static_detection_rate": 0.3333,
-      "adaptive_detection_rate": 1.0
+      "static_detection_rate": 0.1111,
+      "adaptive_detection_rate": 0.8889
     }
   ],
   "latency": {
-    "p50_ms": 43.41,
-    "p95_ms": 46.82,
-    "mean_ms": 30.29,
+    "p50_ms": 135.17,
+    "p95_ms": 161.44,
+    "mean_ms": 100.04,
     "samples": 3
   },
   "discoveries": 0,
@@ -125,5 +173,5 @@
   "genai_enabled": false,
   "blue_api": null,
   "detector_type": "TrainableDetector",
-  "seed": 99
+  "seed": 71
 }

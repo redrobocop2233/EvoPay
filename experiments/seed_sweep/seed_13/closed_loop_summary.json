@@ -28,9 +28,12 @@
     "n_legitimate_samples": 25,
     "mean_legit_risk": 0.1242
   },
-  "holdout_attack_eval": {
-    "description": "Performance on attack families/combos never seen during evolution",
-    "held_out_families": [],
+  "holdout_metrics": {
+    "description": "Performance on attack families/primitive-combos never seen during evolution",
+    "n_campaigns": 20,
+    "detection_rate": 0.95,
+    "attack_success_rate": 0.05,
+    "mean_risk": 0.8683,
     "held_out_primitive_combos": [
       [
         "geographic",
@@ -42,9 +45,54 @@
         "coordination"
       ]
     ],
+    "held_out_families": [],
+    "precision": 1.0,
+    "recall": 0.95,
+    "f1": 0.9743589743589743,
+    "fpr": 0.0,
+    "fnr": 0.05,
+    "true_positives": 19,
+    "false_positives": 0,
+    "true_negatives": 25,
+    "false_negatives": 1,
+    "roc_auc": 1.0,
+    "pr_auc": 1.0,
+    "brier_score": 0.02244662222222222,
+    "recall_at_1pct_fpr": 1.0,
+    "recall_at_5pct_fpr": 1.0
+  },
+  "holdout_attack_eval": {
+    "description": "Performance on attack families/primitive-combos never seen during evolution",
     "n_campaigns": 20,
-    "detection_rate": 0.85,
-    "mean_risk": 0.7996
+    "detection_rate": 0.95,
+    "attack_success_rate": 0.05,
+    "mean_risk": 0.8683,
+    "held_out_primitive_combos": [
+      [
+        "geographic",
+        "velocity"
+      ],
+      [
+        "device",
+        "merchant",
+        "coordination"
+      ]
+    ],
+    "held_out_families": [],
+    "precision": 1.0,
+    "recall": 0.95,
+    "f1": 0.9743589743589743,
+    "fpr": 0.0,
+    "fnr": 0.05,
+    "true_positives": 19,
+    "false_positives": 0,
+    "true_negatives": 25,
+    "false_negatives": 1,
+    "roc_auc": 1.0,
+    "pr_auc": 1.0,
+    "brier_score": 0.02244662222222222,
+    "recall_at_1pct_fpr": 1.0,
+    "recall_at_5pct_fpr": 1.0
   },
   "generation_timeline": [
     {
@@ -114,9 +162,9 @@
     }
   ],
   "latency": {
-    "p50_ms": 42.79,
-    "p95_ms": 44.88,
-    "mean_ms": 29.44,
+    "p50_ms": 148.24,
+    "p95_ms": 198.64,
+    "mean_ms": 117.63,
     "samples": 3
   },
   "discoveries": 0,

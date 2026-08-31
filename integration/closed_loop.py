@@ -35,7 +35,7 @@ from red_and_blue_team.red_team import (
 )
 from eval.metrics import compute_classification_metrics, recall_at_fpr
 from eval.closed_loop_metrics import generation_metrics, overall_metrics
-from eval.holdout import DEFAULT_HOLDOUT, build_holdout_eval_set
+from eval.holdout import HoldoutConfig, DEFAULT_HOLDOUT, build_holdout_eval_set
 
 
 GENES = {"amount", "temporal", "device", "geographic", "merchant", "velocity", "coordination"}
@@ -141,23 +141,22 @@ def _evaluate_legitimate(detector, eco, rng, n=25):
     return scores
 
 
-def _holdout_attacks(controller, detector, eco, rng, n_per_combo=10):
-    """Fresh genomes evaluated after the loop that use exclusively held-out combos."""
-    campaigns = build_holdout_eval_set(controller.planner, eco, DEFAULT_HOLDOUT, rng, n_per_combo)
+def _holdout_attacks(controller, detector, eco, rng, n=20):
+    """Fresh genomes evaluated after the loop; they receive no GenAI feedback."""
     scores = []
     detected = 0
-    for campaign_id, txns in campaigns:
-        try:
-            result = detector.evaluate(txns, eco)
-            scores.append(float(result.risk_score))
-            detected += int(result.detected)
-        except Exception:
+    for _ in range(n):
+        genome = random_genome(rng, generation=999)
+        strategy = GenomeCodec.decode(genome)
+        if not controller.validator.is_realistic(strategy):
             continue
+        customer = rng.choice(eco.customers)
+        _, txns = controller.planner.build(customer, strategy)
+        result = detector.evaluate(txns, eco)
+        scores.append(float(result.risk_score))
+        detected += int(result.detected)
     return {
-        "description": "Performance on attack families/combos never seen during evolution",
-        "held_out_families": DEFAULT_HOLDOUT.held_out_families,
-        "held_out_primitive_combos": DEFAULT_HOLDOUT.held_out_primitive_combos,
-        "n_campaigns": len(scores),
+        "n": len(scores),
         "detection_rate": round(detected / len(scores), 4) if scores else None,
         "mean_risk": round(float(np.mean(scores)), 4) if scores else None,
     }
@@ -363,10 +362,53 @@ def run_loop(
                     "reason": "local heuristic detector has no trainable state",
                 })
 
-    # Untouched legitimate traffic is a false-positive check; fresh random
-    # attacks are a simple held-out generalization check.
+    # Untouched legitimate traffic is a false-positive check.
     legit_scores = _evaluate_legitimate(detector, eco, rng, legit_samples)
-    holdout = _holdout_attacks(controller, detector, eco, rng, holdout_attacks)
+
+    # Section A — Held-out evaluation on attack families/combos never seen during evolution
+    holdout_campaigns = build_holdout_eval_set(
+        ecosystem=eco,
+        holdout=DEFAULT_HOLDOUT,
+        n_campaigns=holdout_attacks,
+        rng=rng,
+        validator=controller.validator,
+    )
+    holdout_results = []
+    for camp in holdout_campaigns:
+        res = detector.evaluate(camp.transactions, eco)
+        holdout_results.append({
+            "campaign_id": camp.campaign_id,
+            "combo": list(camp.combo),
+            "family": camp.family,
+            "risk_score": float(res.risk_score),
+            "detected": bool(res.detected),
+        })
+
+    holdout_detected = sum(1 for r in holdout_results if r["detected"])
+    holdout_risk_scores = [r["risk_score"] for r in holdout_results]
+
+    y_holdout_true = np.array([1] * len(holdout_risk_scores) + [0] * len(legit_scores))
+    y_holdout_scores = np.array(holdout_risk_scores + legit_scores)
+    y_holdout_pred = (y_holdout_scores >= 0.5).astype(int) if len(y_holdout_scores) else np.array([])
+    holdout_classification = (
+        compute_classification_metrics(y_holdout_true, y_holdout_pred, y_holdout_scores)
+        if len(y_holdout_scores) and len(set(y_holdout_true)) == 2
+        else {}
+    )
+    if holdout_classification:
+        holdout_classification["recall_at_1pct_fpr"] = recall_at_fpr(y_holdout_true, y_holdout_scores, 0.01)
+        holdout_classification["recall_at_5pct_fpr"] = recall_at_fpr(y_holdout_true, y_holdout_scores, 0.05)
+
+    holdout_metrics = {
+        "description": "Performance on attack families/primitive-combos never seen during evolution",
+        "n_campaigns": len(holdout_results),
+        "detection_rate": round(holdout_detected / len(holdout_results), 4) if holdout_results else None,
+        "attack_success_rate": round(1.0 - (holdout_detected / len(holdout_results)), 4) if holdout_results else None,
+        "mean_risk": round(float(np.mean(holdout_risk_scores)), 4) if holdout_risk_scores else None,
+        "held_out_primitive_combos": [list(c) for c in DEFAULT_HOLDOUT.held_out_primitive_combos],
+        "held_out_families": list(DEFAULT_HOLDOUT.held_out_families),
+        **holdout_classification,
+    }
 
     records = controller.memory.records
     y_true = np.array([1] * len(records) + [0] * len(legit_scores))
@@ -407,7 +449,8 @@ def run_loop(
     summary = {
         "overall_red_blue": overall_metrics(records),
         "blue_classification": classification,
-        "holdout_attack_eval": holdout,
+        "holdout_metrics": holdout_metrics,
+        "holdout_attack_eval": holdout_metrics,
         "generation_timeline": timeline,
         "static_vs_adaptive": static_vs_adaptive,
         "latency": latency_stats,
@@ -472,7 +515,7 @@ def main():
         retrain_blue_every=args.retrain_blue_every,
         output_dir=args.output_dir,
         legit_samples=args.legit_samples,
-        holdout_attacks=args.holdout_attacks // len(DEFAULT_HOLDOUT.held_out_primitive_combos),
+        holdout_attacks=args.holdout_attacks,
         use_legacy_proxy=args.use_legacy_proxy,
     )
 
@@ -497,20 +540,22 @@ def main():
             )
 
     bm = summary["blue_classification"]
-    print("\nBLUE PERFORMANCE ON RED + UNTOUCHED LEGIT")
+    print("\nBLUE IN-DISTRIBUTION PERFORMANCE (Evolved Red + Untouched Legit)")
     for key in ("precision", "recall", "f1", "fpr", "roc_auc", "pr_auc", "recall_at_1pct_fpr", "recall_at_5pct_fpr"):
         if key in bm:
             print(f"  {key:22}: {bm[key]:.4f}")
 
-    if "holdout_attack_eval" in summary:
-        ho = summary["holdout_attack_eval"]
-        print("\nHELD-OUT ATTACK EVALUATION (Never seen during evolution)")
-        if ho.get("detection_rate") is not None:
-            print(f"  detection_rate        : {ho['detection_rate']:.4f}")
-            print(f"  mean_risk             : {ho['mean_risk']:.4f}")
-            print(f"  campaigns tested      : {ho.get('n_campaigns', 0)}")
-        else:
-            print("  No held-out combos detected.")
+    hm = summary.get("holdout_metrics", {})
+    if hm:
+        print("\nBLUE HELD-OUT GENERALIZATION (Unseen Primitive Combinations + Legit)")
+        print(f"  held-out campaigns    : {hm.get('n_campaigns', 0)}")
+        if hm.get("detection_rate") is not None:
+            print(f"  detection_rate        : {hm['detection_rate']:.4f}")
+            print(f"  attack_success_rate   : {hm['attack_success_rate']:.4f}")
+            print(f"  mean_risk             : {hm['mean_risk']:.4f}")
+        for key in ("precision", "recall", "f1", "fpr", "roc_auc", "pr_auc", "recall_at_1pct_fpr", "recall_at_5pct_fpr"):
+            if key in hm:
+                print(f"  {key:22}: {hm[key]:.4f}")
 
     # Section 4: Print latency stats
     if summary.get("latency"):

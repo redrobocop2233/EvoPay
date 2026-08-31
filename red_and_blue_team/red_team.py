@@ -101,12 +101,22 @@ def random_genome(rng, generation=0, parent_id=None):
 class MutationEngine:
     def __init__(self, rng, sigma=0.15):
         self.rng = rng
+        self.base_sigma = sigma
         self.sigma = sigma
+        self.saturation_streak = 0
         self._gene_variances = None  # set externally by EvolutionEngine
 
     def set_gene_variances(self, variances):
         """Accept per-gene variance from the population for biased mutation."""
         self._gene_variances = variances
+
+    def set_saturation_streak(self, streak: int):
+        """Adaptive mutation schedule: boost mutation strength when detection saturates."""
+        self.saturation_streak = streak
+        if streak >= 2:
+            self.sigma = self.base_sigma * (1.0 + 0.25 * min(streak, 4))
+        else:
+            self.sigma = self.base_sigma
 
     def mutate(self, genome, generation):
         child = copy.deepcopy(genome)
@@ -114,7 +124,11 @@ class MutationEngine:
         child.parent_id = genome.genome_id
         child.generation = generation
 
-        num_genes = self.rng.choice([1, 2, 3])
+        # If saturated, mutate more genes to break out of local optima
+        if self.saturation_streak >= 2:
+            num_genes = self.rng.choice([2, 3, 4])
+        else:
+            num_genes = self.rng.choice([1, 2, 3])
 
         # Diversity preservation: bias mutation toward low-variance genes
         # (the dimensions that have converged too much)
@@ -593,42 +607,37 @@ class FailureAnalyzer:
 # ---------------------------------------------------------- evolution ---
 
 class EvolutionEngine:
-    def __init__(self, rng, population_size=30, survival_fraction=0.3, immigrant_fraction=0.15,
-                 holdout=None):
+    def __init__(self, rng, population_size=30, survival_fraction=0.3, immigrant_fraction=0.15, holdout=None):
         self.rng = rng
         self.population_size = population_size
         self.num_survivors = max(2, int(population_size * survival_fraction))
         self.num_immigrants = max(1, int(population_size * immigrant_fraction))
         self.mutation_engine = MutationEngine(rng)
         self.holdout = holdout
-        self._consecutive_saturated = 0  # Track consecutive 100% detection gens
 
-    def _passes_holdout(self, genome):
-        """Return True if genome does NOT violate holdout constraints."""
+    def _violates_holdout(self, genome):
         if self.holdout is None:
-            return True
-        from eval.holdout import violates_holdout_genome
-        return not violates_holdout_genome(genome, self.holdout)
+            return False
+        from eval.holdout import violates_holdout
+        return violates_holdout(genome, self.holdout)
+
+    def _sample_valid_random_genome(self, generation=0, parent_id=None, max_attempts=50):
+        for _ in range(max_attempts):
+            g = random_genome(self.rng, generation=generation, parent_id=parent_id)
+            if not self._violates_holdout(g):
+                return g
+        return g
 
     def initial_population(self):
-        population = []
-        max_attempts = self.population_size * 5
-        attempts = 0
-        while len(population) < self.population_size and attempts < max_attempts:
-            genome = random_genome(self.rng, generation=0)
-            if self._passes_holdout(genome):
-                population.append(genome)
-            attempts += 1
-        # Fill remainder if holdout is very restrictive
-        while len(population) < self.population_size:
-            population.append(random_genome(self.rng, generation=0))
-        return population
+        return [self._sample_valid_random_genome(generation=0) for _ in range(self.population_size)]
 
-    def next_generation(self, evaluated, generation, detection_rate=None):
+    def next_generation(self, evaluated, generation):
         # evaluated: list of (genome, fitness)
         ranked = sorted(evaluated, key=lambda pair: pair[1], reverse=True)
 
-        # Section 3 — Family-balanced selection
+        # Section 3 — Family-balanced selection: cap how many survivors
+        # can come from the same attack family so one high-fitness family
+        # can't dominate the entire next generation.
         survivors = self._family_balanced_select(ranked)
 
         # Update gene variances for variance-biased mutation
@@ -639,46 +648,25 @@ class EvolutionEngine:
             gene_variances = [float(arr[:, i].var()) for i in range(len(GENE_NAMES))]
             self.mutation_engine.set_gene_variances(gene_variances)
 
-        # Section B: Adaptive mutation rate — boost when Blue saturates
-        if detection_rate is not None and detection_rate >= 0.999:
-            self._consecutive_saturated += 1
-        else:
-            self._consecutive_saturated = 0
-
-        if self._consecutive_saturated >= 2:
-            # Increase mutation strength to push Red out of Blue's learned region
-            self.mutation_engine.sigma = min(0.25, self.mutation_engine.sigma * 1.5)
-        else:
-            self.mutation_engine.sigma = 0.15  # default
-
         children = []
         num_children = self.population_size - len(survivors) - self.num_immigrants
         for _ in range(num_children):
             child = None
-            for _attempt in range(10):  # retry if holdout violated
+            for _attempt in range(20):
                 if len(survivors) >= 2 and self.rng.random() < 0.3:
                     parent_a, parent_b = self.rng.sample(survivors, 2)
                     candidate = self.mutation_engine.crossover(parent_a, parent_b, generation)
                 else:
                     parent = self.rng.choice(survivors)
                     candidate = self.mutation_engine.mutate(parent, generation)
-                if self._passes_holdout(candidate):
+                if not self._violates_holdout(candidate):
                     child = candidate
                     break
             if child is None:
-                child = candidate  # fallback: use last attempt
+                child = self._sample_valid_random_genome(generation=generation)
             children.append(child)
 
-        immigrants = []
-        for _ in range(self.num_immigrants):
-            for _attempt in range(10):
-                g = random_genome(self.rng, generation=generation)
-                if self._passes_holdout(g):
-                    immigrants.append(g)
-                    break
-            else:
-                immigrants.append(g)
-
+        immigrants = [self._sample_valid_random_genome(generation=generation) for _ in range(self.num_immigrants)]
         return survivors + children + immigrants
 
     def _family_balanced_select(self, ranked):
@@ -725,6 +713,7 @@ class RedTeamController:
         self.validator = RealismValidator()
         self.novelty_engine = NoveltyEngine()
         self.fitness_engine = FitnessEngine()
+        self.holdout = holdout
         self.evolution = EvolutionEngine(self.rng, population_size=population_size, holdout=holdout)
         self.memory = StrategyMemory()
         self.fraud_transactions = []
@@ -732,6 +721,7 @@ class RedTeamController:
         self.generation_stats = []
         self.population = None
         self.next_generation_number = 0
+        self._saturation_streak = 0
 
     def _inject_seed_genomes(self, population, seed_genomes):
         """Inject externally proposed genomes without discarding the running population."""
@@ -767,7 +757,7 @@ class RedTeamController:
 
             for genome in population:
                 strategy = GenomeCodec.decode(genome)
-                if not self.validator.is_realistic(strategy):
+                if not self.validator.is_realistic(strategy) or (self.holdout and self.evolution._violates_holdout(genome)):
                     # rejected candidates don't compete this generation but are
                     # still replaced next generation via mutation of survivors
                     evaluated.append((genome, -1.0))
@@ -819,19 +809,23 @@ class RedTeamController:
                     gen_detected += 1
 
             if gen_evaluated > 0:
+                gen_det_rate = gen_detected / gen_evaluated
+                if gen_det_rate >= 0.95:
+                    self._saturation_streak += 1
+                else:
+                    self._saturation_streak = 0
+                self.evolution.mutation_engine.set_saturation_streak(self._saturation_streak)
+
                 self.generation_stats.append({
                     "generation": generation,
                     "avg_fitness": round(gen_fitness_total / gen_evaluated, 4),
                     "avg_risk": round(gen_risk_total / gen_evaluated, 3),
-                    "detection_rate": round(gen_detected / gen_evaluated, 3),
-                    "attack_success_rate": round(1 - gen_detected / gen_evaluated, 3),
+                    "detection_rate": round(gen_det_rate, 3),
+                    "attack_success_rate": round(1 - gen_det_rate, 3),
                     "evaluated": gen_evaluated,
                 })
 
-            population = self.evolution.next_generation(
-                evaluated, generation + 1,
-                detection_rate=(gen_detected / gen_evaluated) if gen_evaluated else None,
-            )
+            population = self.evolution.next_generation(evaluated, generation + 1)
             self.next_generation_number = generation + 1
 
         self.population = population

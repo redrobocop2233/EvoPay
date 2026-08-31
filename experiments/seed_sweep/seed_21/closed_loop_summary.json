@@ -28,9 +28,12 @@
     "n_legitimate_samples": 25,
     "mean_legit_risk": 0.2134
   },
-  "holdout_attack_eval": {
-    "description": "Performance on attack families/combos never seen during evolution",
-    "held_out_families": [],
+  "holdout_metrics": {
+    "description": "Performance on attack families/primitive-combos never seen during evolution",
+    "n_campaigns": 20,
+    "detection_rate": 1.0,
+    "attack_success_rate": 0.0,
+    "mean_risk": 0.8517,
     "held_out_primitive_combos": [
       [
         "geographic",
@@ -42,9 +45,54 @@
         "coordination"
       ]
     ],
+    "held_out_families": [],
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "fpr": 0.0,
+    "fnr": 0.0,
+    "true_positives": 20,
+    "false_positives": 0,
+    "true_negatives": 25,
+    "false_negatives": 0,
+    "roc_auc": 1.0,
+    "pr_auc": 1.0,
+    "brier_score": 0.049281599999999995,
+    "recall_at_1pct_fpr": 1.0,
+    "recall_at_5pct_fpr": 1.0
+  },
+  "holdout_attack_eval": {
+    "description": "Performance on attack families/primitive-combos never seen during evolution",
     "n_campaigns": 20,
-    "detection_rate": 0.85,
-    "mean_risk": 0.7855
+    "detection_rate": 1.0,
+    "attack_success_rate": 0.0,
+    "mean_risk": 0.8517,
+    "held_out_primitive_combos": [
+      [
+        "geographic",
+        "velocity"
+      ],
+      [
+        "device",
+        "merchant",
+        "coordination"
+      ]
+    ],
+    "held_out_families": [],
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "fpr": 0.0,
+    "fnr": 0.0,
+    "true_positives": 20,
+    "false_positives": 0,
+    "true_negatives": 25,
+    "false_negatives": 0,
+    "roc_auc": 1.0,
+    "pr_auc": 1.0,
+    "brier_score": 0.049281599999999995,
+    "recall_at_1pct_fpr": 1.0,
+    "recall_at_5pct_fpr": 1.0
   },
   "generation_timeline": [
     {
@@ -114,9 +162,9 @@
     }
   ],
   "latency": {
-    "p50_ms": 49.08,
-    "p95_ms": 52.04,
-    "mean_ms": 33.93,
+    "p50_ms": 77.02,
+    "p95_ms": 83.99,
+    "mean_ms": 54.4,
     "samples": 3
   },
   "discoveries": 0,

@@ -3,36 +3,36 @@
     "event": "blue_evaluation",
     "generation": 0,
     "campaigns": 12,
-    "detected": 7,
-    "latency_ms": 17.0
+    "detected": 6,
+    "latency_ms": 5.0
   },
   {
     "event": "blue_retrain_trainable",
     "generation": 0,
-    "training_samples": 69
+    "training_samples": 64
   },
   {
     "event": "blue_evaluation",
     "generation": 1,
     "campaigns": 9,
-    "detected": 7,
-    "latency_ms": 762.9
+    "detected": 9,
+    "latency_ms": 1070.2
   },
   {
     "event": "blue_retrain_trainable",
     "generation": 1,
-    "training_samples": 78
+    "training_samples": 73
   },
   {
     "event": "blue_evaluation",
     "generation": 2,
     "campaigns": 9,
-    "detected": 6,
-    "latency_ms": 693.2
+    "detected": 8,
+    "latency_ms": 991.6
   },
   {
     "event": "blue_retrain_trainable",
     "generation": 2,
-    "training_samples": 87
+    "training_samples": 82
   }
 ]

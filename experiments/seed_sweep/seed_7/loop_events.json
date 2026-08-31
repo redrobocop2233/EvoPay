@@ -4,7 +4,7 @@
     "generation": 0,
     "campaigns": 12,
     "detected": 2,
-    "latency_ms": 4.8
+    "latency_ms": 27.9
   },
   {
     "event": "blue_retrain_trainable",
@@ -16,7 +16,7 @@
     "generation": 1,
     "campaigns": 9,
     "detected": 9,
-    "latency_ms": 438.8
+    "latency_ms": 4244.4
   },
   {
     "event": "blue_retrain_trainable",
@@ -28,7 +28,7 @@
     "generation": 2,
     "campaigns": 9,
     "detected": 8,
-    "latency_ms": 438.0
+    "latency_ms": 1087.7
   },
   {
     "event": "blue_retrain_trainable",
